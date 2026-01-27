@@ -1,0 +1,16 @@
+{
+  "targetUrl": "https://loket.com/event/your-event-link",
+  "categoryKeywords": ["CAT 1", "VIP", "GOLD", "SILVER"],
+  "ticketAmount": 1,
+  "personalData": {
+    "name": "Your Full Name",
+    "nik": "1234567890123456",
+    "email": "email@example.com",
+    "phone": "08123456789"
+  },
+  "settings": {
+    "pollIntervalMs": 100,
+    "headless": false,
+    "timeout": 30000
+  }
+}
