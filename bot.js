@@ -598,117 +598,89 @@ async function fillForm(page, personalData) {
     }
   }
   
-  // Handle DOB (Date of Birth) - This is often a date picker
+  // Handle DOB (Date of Birth) - Uses a clickable div with calendar popover
   if (personalData.dob) {
     try {
       logger.info('Looking for DOB/Date of Birth field...');
-      
-      // List all date-related inputs for debugging
-      const dateInputs = await page.$$('input[type="date"]:visible');
-      logger.info(`Found ${dateInputs.length} date input fields`);
-      
-      const dobSelectors = [
-        'input[type="date"]',
-        'input[name*="dob"]',
-        'input[name*="birth"]',
-        'input[name*="tanggal_lahir"]',
-        'input[name*="tgl_lahir"]',
-        'input[name*="lahir"]',
-        'input[placeholder*="Tanggal Lahir"]',
-        'input[placeholder*="Date of Birth"]',
-        'input[placeholder*="DOB"]',
-        'input[placeholder*="DD/MM/YYYY"]',
-        'input[placeholder*="YYYY-MM-DD"]',
-        // Look for any input near a label containing "lahir" or "birth"
-        'label:has-text("Lahir") + input',
-        'label:has-text("Birth") + input',
-        'label:has-text("Tanggal Lahir") ~ input',
-        '*:has-text("Tanggal Lahir") input'
-      ];
-      
-      let dobFilled = false;
-      
-      for (const sel of dobSelectors) {
-        try {
-          const dobField = await page.locator(sel).first();
-          if (await dobField.isVisible({ timeout: 500 }).catch(() => false)) {
-            const inputType = await dobField.getAttribute('type');
-            logger.info(`Found DOB field: selector=${sel}, type=${inputType}`);
-            
-            // Click to focus/open date picker
-            await dobField.click();
+
+      // Target DOB Data
+      const [year, month, day] = personalData.dob.split('-');
+      const targetYear = year;
+      const targetDay = day;
+
+      // Map month number to Indonesian month name
+      const monthNamesIndo = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+                               'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+      const targetMonth = monthNamesIndo[parseInt(month) - 1];
+
+      logger.info(`Target DOB: ${targetDay} ${targetMonth} ${targetYear}`);
+
+      // 1. Click the "Select Date of Birth" trigger div
+      const dobTrigger = page.locator('div:has-text("Select Date of Birth")');
+      if (await dobTrigger.isVisible({ timeout: 2000 }).catch(() => false)) {
+        logger.info('Clicking "Select Date of Birth" trigger...');
+        await dobTrigger.last().click();
+        await page.waitForTimeout(500);
+
+        // 2. Wait for calendar popover to appear
+        await page.waitForSelector('.datepicker-popover, [role="dialog"], .calendar, [class*="popover"]', { state: 'visible', timeout: 3000 }).catch(() => {});
+        await page.waitForTimeout(300);
+
+        // 3. Click Year header to open year dropdown
+        const yearHeader = page.locator('button, div').filter({ hasText: /^2008$|^2009$|^201[0-9]$|^202[0-9]$/ }).first();
+        if (await yearHeader.isVisible({ timeout: 1000 }).catch(() => false)) {
+          logger.info(`Clicking year header to select ${targetYear}...`);
+          await yearHeader.click();
+          await page.waitForTimeout(300);
+
+          // Select target year from dropdown
+          const yearOption = page.locator(`text="${targetYear}"`);
+          if (await yearOption.isVisible({ timeout: 1000 }).catch(() => false)) {
+            await yearOption.click();
+            logger.info(`Selected year: ${targetYear}`);
             await page.waitForTimeout(300);
-            
-            // Try different date input strategies
-            if (inputType === 'date') {
-              // For native date inputs, use ISO format
-              await dobField.fill(personalData.dob);
-            } else {
-              // For custom date pickers, try typing the date
-              // Parse the ISO date
-              const [year, month, day] = personalData.dob.split('-');
-              
-              // Try different formats
-              const formats = [
-                personalData.dob,  // YYYY-MM-DD
-                `${day}/${month}/${year}`,  // DD/MM/YYYY
-                `${day}-${month}-${year}`,  // DD-MM-YYYY
-                `${month}/${day}/${year}`   // MM/DD/YYYY
-              ];
-              
-              for (const format of formats) {
-                await dobField.fill('');
-                await page.waitForTimeout(100);
-                await dobField.type(format, { delay: 50 });
-                await page.waitForTimeout(200);
-                
-                const value = await dobField.inputValue();
-                if (value && value.length > 0) {
-                  logger.success(`Filled DOB: ${format}`);
-                  dobFilled = true;
-                  break;
-                }
-              }
-            }
-            
-            if (dobFilled) break;
-            
-            // Check if value was set
-            const finalValue = await dobField.inputValue();
-            if (finalValue && finalValue.length > 0) {
-              logger.success(`Filled DOB: ${finalValue}`);
-              dobFilled = true;
-              break;
-            }
           }
-        } catch (e) {}
-      }
-      
-      // If still not filled, try to find and click on date picker button/icon
-      if (!dobFilled) {
-        try {
-          const calendarButtons = await page.locator('[class*="calendar"], [class*="datepicker"], svg[class*="calendar"]').all();
-          if (calendarButtons.length > 0) {
-            logger.info(`Found ${calendarButtons.length} calendar buttons, trying first one...`);
-            await calendarButtons[0].click();
-            await page.waitForTimeout(500);
-            
-            // Try to select date from open calendar
-            const [year, month, day] = personalData.dob.split('-');
-            
-            // Click on the day
-            const daySelector = await page.locator(`text="${parseInt(day)}"`).first();
-            if (await daySelector.isVisible({ timeout: 500 }).catch(() => false)) {
-              await daySelector.click();
-              logger.success(`Selected date from calendar: ${day}`);
-              dobFilled = true;
-            }
+        }
+
+        // 4. Click Month header to open month dropdown
+        const monthHeader = page.locator('button, div').filter({
+          hasText: /Januari|Februari|Maret|April|Mei|Juni|Juli|Agustus|September|Oktober|November|Desember/
+        }).first();
+        if (await monthHeader.isVisible({ timeout: 1000 }).catch(() => false)) {
+          logger.info(`Clicking month header to select ${targetMonth}...`);
+          await monthHeader.click();
+          await page.waitForTimeout(300);
+
+          // Select target month from dropdown (Indonesian name)
+          const monthOption = page.locator(`text="${targetMonth}"`);
+          if (await monthOption.isVisible({ timeout: 1000 }).catch(() => false)) {
+            await monthOption.click();
+            logger.info(`Selected month: ${targetMonth}`);
+            await page.waitForTimeout(300);
           }
-        } catch (e) {}
-      }
-      
-      if (!dobFilled) {
-        logger.warn('Could not fill DOB field - may need manual input');
+        }
+
+        // 5. Select the day from the grid
+        const dayInGrid = page.locator('.calendar-day, [role="gridcell"], td, button').filter({
+          hasText: new RegExp(`^${targetDay}$`)
+        }).first();
+        if (await dayInGrid.isVisible({ timeout: 1000 }).catch(() => false)) {
+          logger.info(`Selecting day: ${targetDay}`);
+          await dayInGrid.click();
+          logger.success(`Successfully set DOB to ${targetDay} ${targetMonth} ${targetYear}`);
+          await page.waitForTimeout(300);
+        } else {
+          // Try alternative day selector
+          const dayButton = page.locator(`button:has-text("${targetDay}")`).first();
+          if (await dayButton.isVisible({ timeout: 500 }).catch(() => false)) {
+            await dayButton.click();
+            logger.success(`Successfully set DOB to ${targetDay} ${targetMonth} ${targetYear}`);
+          } else {
+            logger.warn(`Could not find day ${targetDay} in calendar`);
+          }
+        }
+      } else {
+        logger.warn('Could not find "Select Date of Birth" trigger');
       }
     } catch (e) {
       logger.warn(`DOB fill error: ${e.message}`);
