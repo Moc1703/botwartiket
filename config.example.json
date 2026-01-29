@@ -1,15 +1,27 @@
 {
   "targetUrl": "https://loket.com/event/your-event-link",
-  "categoryKeywords": ["CAT 1", "VIP", "GOLD", "SILVER"],
-  "ticketAmount": 1,
+  "categoryKeywords": ["CAT 1", "VIP", "GOLD", "SILVER", "Regular Ticket"],
+  "ticketAmount": 2,
   "personalData": {
     "name": "Your Full Name",
     "nik": "1234567890123456",
     "email": "email@example.com",
-    "phone": "08123456789"
+    "phone": "08123456789",
+    "dob": "1990-01-01",
+    "gender": "male",
+    "domisili": "Jakarta"
+  },
+  "attendee2": {
+    "name": "Second Attendee Name",
+    "nik": "1234567890123456",
+    "email": "email2@example.com",
+    "phone": "08123456789",
+    "dob": "1990-01-01",
+    "gender": "male",
+    "domisili": "Jakarta"
   },
   "settings": {
-    "pollIntervalMs": 100,
+    "pollIntervalMs": 50,
     "headless": false,
     "timeout": 30000
   }
